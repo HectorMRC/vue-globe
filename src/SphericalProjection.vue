@@ -17,6 +17,8 @@ import {
   newPlainMaterial,
   newWireframeMaterial,
 } from "./material";
+import { addAmbientLight } from "./light";
+import { newWebGLRenderer } from "./renderer";
 
 const sceneContainer = ref<HTMLDivElement | undefined>(undefined);
 
@@ -39,12 +41,14 @@ const props = withDefaults(defineProps<Props>(), {
 
 // Scene
 const scene = new THREE.Scene();
+addAmbientLight(scene);
+
+// Camera
 const camera = newPerspectiveCamera();
 
 // Renderer
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = newWebGLRenderer();
 renderer.setClearColor(props.backgroundColor);
-renderer.setSize(window.innerWidth, window.innerHeight);
 
 // Make Canvas Responsive
 window.addEventListener("resize", () => {
@@ -80,10 +84,6 @@ const plain = props.mapUrl
 const mesh_2 = new THREE.Mesh(sphere_2, plain);
 mesh_2.rotateY(-Math.PI / 2); // align meridians
 scene.add(mesh_2);
-
-// Lights
-const ambientLight = new THREE.AmbientLight(0xffffff, 1);
-scene.add(ambientLight);
 
 onMounted(() => {
   if (!sceneContainer.value) {

@@ -5,7 +5,6 @@ const DEFAULT_CAMERA_DISTANCE = 5;
 
 const MAX_CAMERA_DISTANCE = DEFAULT_CAMERA_DISTANCE;
 const MIN_CAMERA_DISTANCE = 1;
-const ACTUAL_CAMERA_DISTANCE = MAX_CAMERA_DISTANCE - MIN_CAMERA_DISTANCE;
 
 const newPerspectiveCamera = (): PerspectiveCamera => {
   const camera = new PerspectiveCamera(
@@ -31,7 +30,7 @@ const distanceRatio = (position: Position): number => {
       Math.pow(position.x, 2) +
         Math.pow(position.y, 2) +
         Math.pow(position.z, 2)
-    ) / ACTUAL_CAMERA_DISTANCE
+    ) / MAX_CAMERA_DISTANCE
   );
 };
 
@@ -43,7 +42,6 @@ export {
   DEFAULT_CAMERA_DISTANCE,
   MAX_CAMERA_DISTANCE,
   MIN_CAMERA_DISTANCE,
-  ACTUAL_CAMERA_DISTANCE,
   Position,
   newPerspectiveCamera,
   distanceRatio,
