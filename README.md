@@ -1,3 +1,3 @@
 # vue-globe
 
-A set of representations for geographical coordinates
+A set of spherical projections for Vue3 + Typescript projects
