@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { reactive, ref } from "vue";
 import map from "./assets/earthmap.jpg";
+import { Shape } from "../src/shape";
+import * as THREE from "three";
 
 const backgroundColor = ref(
   getComputedStyle(document.documentElement).getPropertyValue(
@@ -11,20 +13,18 @@ const backgroundColor = ref(
 const wireframeColor = ref(
   getComputedStyle(document.documentElement).getPropertyValue("--color-border")
 );
+
+const shapes = reactive(new Array<Shape>());
 </script>
 
 <template>
   <div id="app">
     <spherical-projection
-      :background-color="backgroundColor"
-      :wireframe-color="wireframeColor"
-    />
-    <!-- <spherical-projection
-      light-position="front"
+      v-model:shapes="shapes"
       :background-color="backgroundColor"
       :wireframe-color="wireframeColor"
       :map-url="map"
-    /> -->
+    />
   </div>
 </template>
 

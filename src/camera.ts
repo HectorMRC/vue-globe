@@ -14,7 +14,7 @@ const newPerspectiveCamera = (): PerspectiveCamera => {
     1200
   );
 
-  camera.position.z = DEFAULT_CAMERA_DISTANCE;
+  camera.position.x = DEFAULT_CAMERA_DISTANCE;
   return camera;
 };
 

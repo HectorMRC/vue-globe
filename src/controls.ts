@@ -1,4 +1,4 @@
-import { Camera, WebGLRenderer } from "three";
+import { Camera } from "three";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import { MAX_CAMERA_DISTANCE, MIN_CAMERA_DISTANCE } from "./camera";
 
@@ -21,7 +21,6 @@ const updateTrackballControls = (
   scale: number
 ) => {
   const speed = 1 - Math.sqrt(1 - Math.pow(scale, 2));
-  console.log(speed);
   controls.rotateSpeed = speed;
   controls.zoomSpeed = speed;
 };
