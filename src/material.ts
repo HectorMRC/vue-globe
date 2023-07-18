@@ -1,33 +1,53 @@
-import { MeshBasicMaterial, MeshLambertMaterial, TextureLoader } from "three";
+import {
+  LineBasicMaterial,
+  MeshBasicMaterial,
+  MeshLambertMaterial,
+  PointsMaterial,
+  TextureLoader,
+} from "three";
 
 const newWireframeMaterial = (color: string): MeshLambertMaterial => {
-  const material = new MeshLambertMaterial({
+  return new MeshLambertMaterial({
     color: color,
     wireframe: true,
     transparent: true,
     combine: 1,
   });
-
-  return material;
 };
 
 const newPlainMaterial = (color: string): MeshBasicMaterial => {
-  const material = new MeshBasicMaterial({
+  return new MeshBasicMaterial({
     color: color,
     transparent: true,
     combine: 1,
   });
-
-  return material;
 };
 
 const newMapMaterial = (url: string): MeshBasicMaterial => {
-  const material = new MeshBasicMaterial({
+  return new MeshBasicMaterial({
     map: new TextureLoader().load(url),
     combine: 1,
   });
-
-  return material;
 };
 
-export { newWireframeMaterial, newPlainMaterial, newMapMaterial };
+const newLineBasicMaterial = (color = "#ff00ff"): LineBasicMaterial => {
+  return new LineBasicMaterial({
+    color: color,
+  });
+};
+
+const newPointsMaterial = (color = "#ff00ff", size = 10): PointsMaterial => {
+  return new PointsMaterial({
+    sizeAttenuation: false,
+    color: color,
+    size: size,
+  });
+};
+
+export {
+  newWireframeMaterial,
+  newPlainMaterial,
+  newMapMaterial,
+  newLineBasicMaterial,
+  newPointsMaterial,
+};

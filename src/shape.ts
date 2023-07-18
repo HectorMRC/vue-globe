@@ -1,109 +1,82 @@
-import { CartesianPoint, GeographicPoint } from "../globe-rs";
 import {
   BufferAttribute,
   BufferGeometry,
-  LineBasicMaterial,
-  LineSegments,
+  Line,
   Points,
-  PointsMaterial,
-  Scene,
+  Vector2,
+  Vector3,
+  Shape as Plane,
 } from "three";
+import { CartesianPoint, GeographicPoint } from "../globe-rs";
+import { SPHERE_SEGMENTS } from "./geometry";
+import { newLineBasicMaterial, newPointsMaterial } from "./material";
 
-interface ShapeMaterial {
-  line: LineBasicMaterial;
-  point: PointsMaterial;
+interface Shape {
+  points: Array<GeographicPoint>;
+  is_solid?: boolean;
 }
 
-const defaultShapeMaterial = {
-  line: new LineBasicMaterial({
-    color: 0xff00ff,
-  }),
+const getLines = async (
+  shape: Shape,
+  smoothness = 2 * SPHERE_SEGMENTS
+): Promise<Array<Line>> => {
+  return shape.points
+    .map(CartesianPoint.from_geographic)
+    .map((point, index, all) => {
+      const next = all[index + 1] ?? (shape.is_solid ? all[0] : point);
+      return [
+        new Vector3(point.x(), point.y(), point.z()),
+        new Vector3(next.x(), next.y(), next.z()),
+      ];
+    })
+    .map(([pointStart, pointEnd]) => {
+      const cb = new Vector3();
+      const ab = new Vector3();
+      const normal = new Vector3();
 
-  point: new PointsMaterial({
-    sizeAttenuation: false,
-    color: 0xffff00,
-    size: 10,
-  }),
+      cb.subVectors(new Vector3(), pointEnd);
+      ab.subVectors(pointStart, pointEnd);
+      cb.cross(ab);
+      normal.copy(cb).normalize();
+
+      const angle = pointStart.angleTo(pointEnd); // get the angle between vectors
+      const angleDelta = angle / (smoothness - 1); // increment
+
+      const points = [];
+      for (let i = 0; i < smoothness; i++) {
+        // this is the key operation
+        points.push(pointStart.clone().applyAxisAngle(normal, angleDelta * i));
+      }
+
+      const geometry = new BufferGeometry().setFromPoints(points);
+      return new Line(geometry, newLineBasicMaterial());
+    });
 };
 
-class Shape {
-  rawPoints: Array<GeographicPoint>;
-  lineSegments?: LineSegments;
-  points?: Points;
+const getPoints = async (shape: Shape): Promise<Points> => {
+  const vertices = new Float32Array(
+    shape.points
+      .map(CartesianPoint.from_geographic)
+      .map((point) => {
+        return [point.x(), point.y(), point.z()];
+      })
+      .flat()
+  );
 
-  constructor(points?: Array<GeographicPoint>) {
-    this.rawPoints = points ?? [];
-  }
+  const pointsGeometry = new BufferGeometry();
+  pointsGeometry.attributes.position = new BufferAttribute(vertices, 3);
 
-  private computeLineSegments = async (
-    material: ShapeMaterial
-  ): Promise<LineSegments> => {
-    const vertices = new Float32Array(
-      this.rawPoints
-        .map(CartesianPoint.from_geographic)
-        .map((point, index, all) => {
-          const next = all[index + 1] ?? point;
-          return [
-            point.x(),
-            point.y(),
-            point.z(),
-            next.x(),
-            next.y(),
-            next.z(),
-          ];
-        })
-        .flat()
-    );
+  return new Points(pointsGeometry, newPointsMaterial());
+};
 
-    const segmentsGeometry = new BufferGeometry();
-    segmentsGeometry.attributes.position = new BufferAttribute(vertices, 3);
-    return new LineSegments(segmentsGeometry, material.line);
-  };
+const getPlane = async (shape: Shape): Promise<Plane> => {
+  const vertices = shape.points
+    .map(CartesianPoint.from_geographic)
+    .map((point) => {
+      return new Vector2(point.x(), point.y());
+    });
 
-  private computePoints = async (material: ShapeMaterial): Promise<Points> => {
-    const vertices = new Float32Array(
-      this.rawPoints
-        .map(CartesianPoint.from_geographic)
-        .map((point) => {
-          return [point.x(), point.y(), point.z()];
-        })
-        .flat()
-    );
+  return new Plane(vertices);
+};
 
-    const pointsGeometry = new BufferGeometry();
-    pointsGeometry.attributes.position = new BufferAttribute(vertices, 3);
-    return new Points(pointsGeometry, material.point);
-  };
-
-  clean = (scene: Scene) => {
-    if (this.lineSegments !== undefined) {
-      scene.remove(this.lineSegments);
-      this.lineSegments = undefined;
-    }
-
-    if (this.points !== undefined) {
-      scene.remove(this.points);
-      this.points = undefined;
-    }
-  };
-
-  draw = async (
-    scene: Scene,
-    material: ShapeMaterial = defaultShapeMaterial
-  ) => {
-    this.clean(scene);
-
-    const [segments, points] = await Promise.all([
-      this.computeLineSegments(material),
-      this.computePoints(material),
-    ]);
-
-    this.lineSegments = segments;
-    this.points = points;
-
-    scene.add(this.lineSegments);
-    scene.add(this.points);
-  };
-}
-
-export { Shape, ShapeMaterial };
+export { Shape, getLines, getPoints, getPlane };

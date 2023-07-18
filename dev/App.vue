@@ -1,8 +1,26 @@
 <script setup lang="ts">
-import { reactive, ref } from "vue";
-import map from "./assets/earthmap.jpg";
+import { computed, onMounted, ref } from "vue";
+import earthmap from "./assets/earthmap.jpg";
 import { Shape } from "../src/shape";
-import * as THREE from "three";
+import { GeographicPoint } from "../globe-rs/globe_rs";
+import { SPHERE_RADIUS } from "../src/geometry";
+import { ProjectionCtrl } from "../src/main";
+
+const projection = ref<ProjectionCtrl | undefined>(undefined);
+const shape: Shape = { points: [], is_solid: true };
+
+const show_map = ref(false);
+const map = computed((): any => {
+  if (show_map.value) return earthmap;
+  else return undefined;
+});
+
+const onDoubleClick = (_payload: MouseEvent, point: GeographicPoint) => {
+  point.set_altitude(SPHERE_RADIUS);
+
+  shape.points.push(point);
+  projection.value?.updateShape(shape);
+};
 
 const backgroundColor = ref(
   getComputedStyle(document.documentElement).getPropertyValue(
@@ -14,16 +32,20 @@ const wireframeColor = ref(
   getComputedStyle(document.documentElement).getPropertyValue("--color-border")
 );
 
-const shapes = reactive(new Array<Shape>());
+onMounted(() => {
+  projection.value?.addShape(shape);
+});
 </script>
 
 <template>
   <div id="app">
     <spherical-projection
-      v-model:shapes="shapes"
+      ref="projection"
+      class="background"
       :background-color="backgroundColor"
       :wireframe-color="wireframeColor"
       :map-url="map"
+      @dblclick="onDoubleClick"
     />
   </div>
 </template>
@@ -43,5 +65,9 @@ const shapes = reactive(new Array<Shape>());
   display: flex;
   flex-direction: row;
   width: 100%;
+}
+
+.background {
+  position: absolute;
 }
 </style>

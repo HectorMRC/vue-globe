@@ -18,20 +18,17 @@ import {
 } from "./material";
 import { addAmbientLight } from "./light";
 import { newWebGLRenderer } from "./renderer";
-import { Mesh, Points, Raycaster, Scene, Vector2 } from "three";
-import { Shape, ShapeMaterial } from "./shape";
+import { Shape, getLines, getPoints, getPlane } from "./shape";
 import { CartesianPoint, GeographicPoint } from "../globe-rs";
+import * as THREE from "three";
 
 const sceneContainer = ref<HTMLDivElement | undefined>(undefined);
 
 interface Props {
-  shapes: Array<Shape>;
   backgroundColor: string;
   wireframeColor: string;
   widthSegments?: number;
   heightSegments?: number;
-  shapeMaterial?: ShapeMaterial;
-  radius?: number;
   mapUrl?: string;
 }
 
@@ -40,17 +37,17 @@ const props = withDefaults(defineProps<Props>(), {
   wireframeColor: "#00ff00",
   widthSegments: 32,
   heightSegments: 32,
-  radius: 1,
 });
 
 interface Events {
-  (e: "update:shapes", payload: Array<Shape>): void;
+  (e: "click", payload: MouseEvent, point: GeographicPoint): void;
+  (e: "dblclick", payload: MouseEvent, point: GeographicPoint): void;
 }
 
 const emits = defineEmits<Events>();
 
 // Scene
-const scene = new Scene();
+const scene = new THREE.Scene();
 addAmbientLight(scene);
 
 // Camera
@@ -67,15 +64,15 @@ const onWindowResize = () => {
 };
 
 // Create wireframe sphere
-const wireframeSphere = newSphere();
+const wireframeSphere = newSphere(MIN_CAMERA_DISTANCE + 0.002);
 const wireframeMaterial = newWireframeMaterial(props.wireframeColor);
-const wireframeMesh = new Mesh(wireframeSphere, wireframeMaterial);
+const wireframeMesh = new THREE.Mesh(wireframeSphere, wireframeMaterial);
 scene.add(wireframeMesh);
 
 const updateWireframeSphere = () => {
   const scale = distanceScale(camera.position);
-  const diff = MIN_CONTROL_DISTANCE - MIN_CAMERA_DISTANCE;
-  wireframeMesh.scale.setScalar(1 + diff * scale);
+  //   const diff = MIN_CONTROL_DISTANCE - MIN_CAMERA_DISTANCE;
+  //   wireframeMesh.scale.setScalar(1 + diff * scale);
 
   if (props.mapUrl) {
     wireframeMaterial.opacity = 0.5 * (1 - scale);
@@ -91,42 +88,78 @@ const backgroundMaterial = props.mapUrl
   ? newMapMaterial(props.mapUrl)
   : newPlainMaterial(props.backgroundColor);
 
-const backgroundMesh = new Mesh(backgroundSphere, backgroundMaterial);
+const backgroundMesh = new THREE.Mesh(backgroundSphere, backgroundMaterial);
 scene.add(backgroundMesh);
 
-// Manage double click events
-const object = wireframeMesh;
-const mouse = new Vector2();
-const raycaster = new Raycaster();
-const points = ref<Points | undefined>(undefined);
-
-function onDoubleClick(event: MouseEvent) {
+// Manage click events
+function getGeographicPoint(event: MouseEvent): GeographicPoint | undefined {
+  const mouse = new THREE.Vector2();
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
+  const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
 
+  const object = wireframeMesh;
   const intersects = raycaster.intersectObject(object);
   if (intersects.length < 1) return;
 
   const point = object.worldToLocal(intersects[0].point.clone());
-
-  // Normalize cartesian coordinates
   const cartesian = new CartesianPoint(point.x, point.y, point.z);
-  const geographic = GeographicPoint.from_cartesian(cartesian);
-  geographic.set_altitude(MIN_CAMERA_DISTANCE);
+  const geographic =
+    GeographicPoint.from_cartesian(cartesian).with_altitude(SPHERE_RADIUS);
 
-  // Register new point into the shapes model
-  const shapes = props.shapes;
-  if (shapes.length == 0) {
-    shapes.push(new Shape());
-  }
-
-  shapes[0].rawPoints.push(geographic);
-  shapes[0].draw(scene, props.shapeMaterial);
-
-  emits("update:shapes", shapes);
+  return geographic;
 }
+
+function onDoubleClick(event: MouseEvent) {
+  const geographic = getGeographicPoint(event);
+  if (geographic) emits("dblclick", event, geographic);
+}
+
+function onClick(event: MouseEvent) {
+  const geographic = getGeographicPoint(event);
+  if (geographic) emits("click", event, geographic);
+}
+
+// Define component API
+interface ShapeCtrl {
+  removeFn: () => void;
+}
+
+const allShapes = new Map<Shape, ShapeCtrl>();
+
+const addShape = async (shape: Shape) => {
+  const [lines, points] = await Promise.all([
+    getLines(shape),
+    getPoints(shape),
+  ]);
+
+  allShapes.set(shape, {
+    removeFn: () => {
+      lines.forEach((line) => scene.remove(line));
+      scene.remove(points);
+    },
+  });
+
+  lines.forEach((line) => scene.add(line));
+  scene.add(points);
+};
+
+const removeShape = async (shape: Shape) => {
+  allShapes.get(shape)?.removeFn();
+};
+
+const updateShape = async (shape: Shape) => {
+  await removeShape(shape);
+  await addShape(shape);
+};
+
+defineExpose({
+  addShape,
+  removeShape,
+  updateShape,
+});
 
 onMounted(() => {
   if (!sceneContainer.value) {
@@ -136,6 +169,7 @@ onMounted(() => {
 
   window.addEventListener("resize", onWindowResize);
   renderer.domElement.addEventListener("dblclick", onDoubleClick);
+  renderer.domElement.addEventListener("click", onClick);
 
   sceneContainer.value.appendChild(renderer.domElement);
 
@@ -168,4 +202,3 @@ onUnmounted(() => {
 </template>
 
 <style scoped lang="scss"></style>
-./pointer ./shape
